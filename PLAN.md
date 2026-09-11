@@ -234,6 +234,43 @@ percentile curves at the same path count. Full config is JSON import/export and 
 in the URL, so a scenario is a **shareable link** — you can send a colleague the exact
 parameterisation behind a claim.
 
+### 3.1 Total transparency — every factor names its own distribution
+
+Non-negotiable UI rule: **nowhere in this app is a random variable silently assumed.**
+Every stochastic input — appreciation, rent hikes, repo rate, equity returns, inflation,
+income growth, repair severity, everything in the table below — is rendered as a labelled
+card that always shows, without a click to reveal it:
+
+- The **family name in plain text on the card itself** — "Property appreciation —
+  **Lognormal**", "Repo-rate innovations — **Normal (Vasicek OU)**" — never just a slider
+  with no name attached.
+- A **dropdown to change the family** to any other member of §3's list, right there on the
+  same card, not buried in an "advanced" panel.
+- The live PDF sparkline and percentile readouts from §3, updating as parameters change.
+- A one-line **"why this default"** note (e.g. *"Lognormal is standard for asset
+  appreciation and log-returns: guarantees positive prices and matches the fat right tail
+  seen in Residex history"*), so the choice is explained, not just asserted.
+
+**Default family per factor** (the "most commonly used in practice" defaults you asked
+for — all overridable from the same card):
+
+| Factor | Default distribution / process | Why this is the standard choice |
+|---|---|---|
+| Property appreciation | **Lognormal** shocks on a **GBM** | prices stay positive; log-returns are the textbook default for asset prices |
+| Equity / mutual-fund returns | **Lognormal** shocks on a **GBM** (Student-t option for fat tails) | same reasoning; Student-t offered for realistic crash tails |
+| CPI inflation | **Normal** innovations on an **AR(1)/OU** | inflation mean-reverts around a target; Normal innovations are the standard OU/Vasicek assumption |
+| Repo / floating loan rate | **Normal** innovations on a **Vasicek OU** | Vasicek is the canonical mean-reverting short-rate model, Normal by construction |
+| Rent growth | **Normal** innovations on an **AR(1)** around CPI + spread | rent hikes cluster tightly around a policy/lease norm — thin-tailed, mean-reverting |
+| Income growth | **Normal** AR(1) + occasional **Poisson** promotion jumps | steady raises (Normal) plus rare step-changes (Poisson jump) |
+| Repair cost severity | **Lognormal** severity, **Poisson** arrival | standard actuarial pairing for insurable losses: positive, right-skewed severity, discrete arrival counts |
+| Possession delay (under-construction) | **Lognormal** | delays are positive and right-skewed (few huge delays, not few huge *early* deliveries) |
+| Relocation / job-loss shocks | **Poisson** arrival, **Fixed/PERT** duration | rare discrete events; duration bounded and expert-elicited, hence PERT |
+| Stamp duty, tax slabs, caps | **Fixed** (deterministic) by default, promotable to any distribution if the user wants policy-change risk | these are legislated numbers, not naturally random, but nothing stops you from stress-testing them |
+
+Every row above is a *default*, not a constraint — the family dropdown on each card lets
+you replace, say, Lognormal appreciation with Normal, Triangular, or Empirical without
+touching any other part of the model.
+
 ---
 
 ## 4. Outputs — the charts, and what each is *for*
@@ -307,6 +344,29 @@ Templated, not LLM-generated: deterministic, reproducible, auditable.
   seedable **PCG32** + **Ziggurat** normals. Runs in a **Web Worker** (Comlink) with
   streaming progress so the UI stays live during a run. Rough cost: 10k paths × 360 months
   ≈ 3.6M steps × ~15 state updates ≈ well under a second.
+- **Strategy pattern, end to end.** Every place in §3.1 where "the user picks the family"
+  is a `Strategy` interface in code, not a switch statement hidden inside a simulation loop:
+  - `interface DistributionStrategy { sample(rng): number; pdf(x): number; cdf(x): number;
+    quantile(p): number; mean(): number; stdev(): number; fitFromPercentiles(p10, p50, p90):
+    DistributionStrategy; describe(): string }`, implemented once each by `NormalDistribution`,
+    `LognormalDistribution`, `StudentTDistribution`, `TriangularDistribution`,
+    `PERTDistribution`, `UniformDistribution`, `BetaDistribution`, `GammaDistribution`,
+    `EmpiricalDistribution`, `MixtureDistribution`, `FixedDistribution` — one file each under
+    `lib/engine/distributions/`, registered in a lookup map keyed by family name.
+  - `interface ProcessStrategy { step(state, dt, shockStrategy: DistributionStrategy, rng):
+    number; simulatePath(T, rng): Float64Array }`, implemented by `IIDProcess`,
+    `OrnsteinUhlenbeckProcess`, `GBMProcess`, `MertonJumpDiffusionProcess`,
+    `RegimeSwitchingProcess`, `BlockBootstrapProcess` under `lib/engine/processes/` — each one
+    *composes* a `DistributionStrategy` for its shock term rather than hard-coding Normal,
+    which is what lets "Normal innovations on an OU" become "Student-t innovations on an OU"
+    by swapping one strategy object.
+  - Every driver in §2.4's table (appreciation, rate, rent growth, inflation, income,
+    equity, repairs, possession delay, life-event shocks) is a **named slot** holding one
+    `ProcessStrategy` (or bare `DistributionStrategy` for non-time-varying inputs); the
+    simulation loop and the UI card both read the same slot, so the family name shown on a
+    card in §3.1 is never able to drift out of sync with what the engine actually samples.
+  - Adding a new family later is additive — one new class implementing the interface plus
+    one registry entry, zero changes to `simulate.ts`, `buyPath.ts`, or `rentPath.ts`.
 - **State**: Zustand; config validated by **Zod** (single source of truth for schema,
   defaults, and JSON import validation); URL-encoded compressed config for shareable links.
 - **Python** (`research/`, uv-managed, not deployed): numpy/scipy/pandas/statsmodels/SALib
