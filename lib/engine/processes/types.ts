@@ -22,6 +22,19 @@ export interface ProcessStrategy {
   simulatePath(initialLevel: number, steps: number, dt: number, rng: RngStrategy): Float64Array;
   params(): Record<string, unknown>;
   rationale(): string;
+  /**
+   * Optional: advance one step using an externally supplied standardized
+   * (mean 0, unit-scale) shock instead of drawing one internally — the hook
+   * the Monte Carlo driver's correlation engine (correlate.ts) uses to make
+   * this driver's shock correlated with other drivers' shocks via a
+   * Gaussian copula. Implemented by OrnsteinUhlenbeckProcess, GBMProcess,
+   * and MertonJumpDiffusionProcess (whose diffusive term is correlatable;
+   * its jump term is always drawn independently). Processes without a
+   * single continuous shock term (regime-switching, block bootstrap, IID)
+   * do not implement this — simulate.ts falls back to their plain `step`
+   * (uncorrelated) when a driver uses one of those.
+   */
+  stepWithShock?(level: number, dt: number, standardizedShock: number, rng: RngStrategy): number;
 }
 
 export const PROCESS_KINDS = [

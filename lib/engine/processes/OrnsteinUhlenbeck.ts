@@ -21,8 +21,18 @@ export class OrnsteinUhlenbeckProcess implements ProcessStrategy {
   ) {}
 
   step(level: number, dt: number, rng: RngStrategy): number {
+    return this.stepWithShock(level, dt, this.shock.sample(rng));
+  }
+
+  /**
+   * Advance one step using an externally supplied standardized shock value
+   * instead of drawing one internally — the hook the Monte Carlo driver
+   * uses to inject a Gaussian-copula-correlated shock (see correlate.ts)
+   * while still applying this process's own kappa/theta/sigma dynamics.
+   */
+  stepWithShock(level: number, dt: number, standardizedShock: number, _rng?: RngStrategy): number {
     const drift = this.kappa * (this.theta - level) * dt;
-    const diffusion = this.sigma * Math.sqrt(dt) * this.shock.sample(rng);
+    const diffusion = this.sigma * Math.sqrt(dt) * standardizedShock;
     return level + drift + diffusion;
   }
   simulatePath(initialLevel: number, steps: number, dt: number, rng: RngStrategy): Float64Array {

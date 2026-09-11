@@ -23,7 +23,12 @@ export class GBMProcess implements ProcessStrategy {
   ) {}
 
   step(level: number, dt: number, rng: RngStrategy): number {
-    const logReturn = (this.mu - 0.5 * this.sigma * this.sigma) * dt + this.sigma * Math.sqrt(dt) * this.shock.sample(rng);
+    return this.stepWithShock(level, dt, this.shock.sample(rng));
+  }
+
+  /** See OrnsteinUhlenbeckProcess.stepWithShock — same role, for injecting a correlated shock. */
+  stepWithShock(level: number, dt: number, standardizedShock: number, _rng?: RngStrategy): number {
+    const logReturn = (this.mu - 0.5 * this.sigma * this.sigma) * dt + this.sigma * Math.sqrt(dt) * standardizedShock;
     return level * Math.exp(logReturn);
   }
   simulatePath(initialLevel: number, steps: number, dt: number, rng: RngStrategy): Float64Array {

@@ -25,8 +25,18 @@ export class MertonJumpDiffusionProcess implements ProcessStrategy {
   ) {}
 
   step(level: number, dt: number, rng: RngStrategy): number {
-    const diffusiveReturn =
-      (this.mu - 0.5 * this.sigma * this.sigma) * dt + this.sigma * Math.sqrt(dt) * this.shock.sample(rng);
+    return this.stepWithShock(level, dt, this.shock.sample(rng), rng);
+  }
+
+  /**
+   * See OrnsteinUhlenbeckProcess.stepWithShock — the diffusive term takes an
+   * externally supplied standardized shock (for correlation with other
+   * drivers); the jump term is always drawn independently from `rng`, since
+   * rare discrete jump events are not part of this app's Gaussian-copula
+   * correlation structure.
+   */
+  stepWithShock(level: number, dt: number, standardizedShock: number, rng: RngStrategy): number {
+    const diffusiveReturn = (this.mu - 0.5 * this.sigma * this.sigma) * dt + this.sigma * Math.sqrt(dt) * standardizedShock;
     let jumpMultiplier = 1;
     const jumpCount = samplePoisson(this.lambda * dt, rng);
     for (let i = 0; i < jumpCount; i++) jumpMultiplier *= this.jumpSize.sample(rng);
