@@ -37,9 +37,26 @@ export interface RentPathMonth {
   netWorth: number;
 }
 
+/**
+ * "Where did the renter's final wealth come from?" — mirrors
+ * BuyWealthDecomposition. By construction: initialSidePortfolio +
+ * differentialContributed + hraTaxSavingsContributed +
+ * depositCashFlowContributed + investmentGrowth == finalSidePortfolio, and
+ * finalSidePortfolio + finalDepositHeld == final net worth.
+ */
+export interface RentWealthDecomposition {
+  initialSidePortfolio: number;
+  differentialContributed: number; // sum of (buyer's cash outflow - renter's cash outflow) each month; the "money saved by renting, invested"
+  hraTaxSavingsContributed: number;
+  depositCashFlowContributed: number; // net cash effect of deposit refunds/re-deposits at each move (usually small, can be negative)
+  investmentGrowth: number; // residual
+  finalDepositHeld: number; // still an asset, just not liquid/invested
+}
+
 export interface RentPathResult {
   months: RentPathMonth[];
   initialSidePortfolio: number;
+  decomposition: RentWealthDecomposition;
 }
 
 export function computeRentPath(inputs: RentPathInputs): RentPathResult {
@@ -59,6 +76,9 @@ export function computeRentPath(inputs: RentPathInputs): RentPathResult {
   let sidePortfolio = Math.max(0, initialSidePortfolio);
   let depositHeld = initialDeposit;
   const results: RentPathMonth[] = [];
+  let totalDifferentialContributed = 0;
+  let totalHraTaxSavingsContributed = 0;
+  let totalDepositCashFlowContributed = 0;
 
   for (let t = 0; t < months; t++) {
     const currentRent = inputs.rentPath[t] ?? 0;
@@ -69,7 +89,9 @@ export function computeRentPath(inputs: RentPathInputs): RentPathResult {
       movingCost = rent.movingCostMonthsRent * currentRent;
       const refund = depositHeld * (1 - expectedForfeitureFraction);
       const newDeposit = rent.depositMonths * currentRent;
-      sidePortfolio += refund - newDeposit; // net cash effect of moving out and re-depositing
+      const depositCashFlow = refund - newDeposit; // net cash effect of moving out and re-depositing
+      sidePortfolio += depositCashFlow;
+      totalDepositCashFlowContributed += depositCashFlow;
       depositHeld = newDeposit;
     }
 
@@ -94,6 +116,8 @@ export function computeRentPath(inputs: RentPathInputs): RentPathResult {
       }) / 12;
     const hraTaxSavingsThisMonth = Math.max(0, taxWithoutHra - taxWithHra);
 
+    totalDifferentialContributed += differential;
+    totalHraTaxSavingsContributed += hraTaxSavingsThisMonth;
     const monthlyReturn = (inputs.investmentReturnAnnualPath[t] ?? 0) / 12;
     sidePortfolio = sidePortfolio * (1 + monthlyReturn) + differential + hraTaxSavingsThisMonth;
 
@@ -112,7 +136,23 @@ export function computeRentPath(inputs: RentPathInputs): RentPathResult {
     });
   }
 
-  return { months: results, initialSidePortfolio };
+  const lastMonth = results[results.length - 1];
+  const seededPortfolio = Math.max(0, initialSidePortfolio);
+  const decomposition: RentWealthDecomposition = {
+    initialSidePortfolio: seededPortfolio,
+    differentialContributed: totalDifferentialContributed,
+    hraTaxSavingsContributed: totalHraTaxSavingsContributed,
+    depositCashFlowContributed: totalDepositCashFlowContributed,
+    investmentGrowth:
+      (lastMonth?.sidePortfolio ?? 0) -
+      seededPortfolio -
+      totalDifferentialContributed -
+      totalHraTaxSavingsContributed -
+      totalDepositCashFlowContributed,
+    finalDepositHeld: lastMonth?.depositHeld ?? initialDeposit,
+  };
+
+  return { months: results, initialSidePortfolio, decomposition };
 }
 
 /** Convenience: derive a rent level path from either an explicit base rent or a gross-yield-of-purchase-price assumption, before hikes are applied by the caller's rent-growth process. */

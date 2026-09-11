@@ -1,8 +1,8 @@
-import { computeBuyPath } from "./buyPath";
+import { computeBuyPath, type BuyWealthDecomposition } from "./buyPath";
 import { CorrelatedShockEngine } from "./correlate";
 import { buildDistribution, buildProcess } from "./factory";
 import { createRng, type RngStrategy } from "./rng";
-import { computeRentPath, resolveBaseRentMonthly } from "./rentPath";
+import { computeRentPath, resolveBaseRentMonthly, type RentWealthDecomposition } from "./rentPath";
 import type { ProcessSpec, ScenarioConfig } from "./schema";
 
 /**
@@ -14,6 +14,17 @@ import type { ProcessSpec, ScenarioConfig } from "./schema";
  * amortization, tax, and the two cash-flow paths all come together.
  */
 
+/** One path's realized annualized average for each correlated macro driver — free byproduct of the run, used for the rank-correlation "what drives the decision" tornado chart (no extra simulation runs needed). */
+export interface PathDriverSummary {
+  appreciationRealized: number;
+  equityReturnRealized: number;
+  debtReturnRealized: number;
+  inflationRealized: number;
+  rentGrowthRealized: number;
+  repoRateRealized: number;
+  incomeGrowthRealized: number;
+}
+
 export interface SimulationResult {
   numPaths: number;
   months: number;
@@ -22,6 +33,11 @@ export interface SimulationResult {
   /** [path][month] net worth, rent branch. */
   rentNetWorth: Float64Array[];
   affordabilityWarningPaths: number; // count of paths where Day-0 outflow exceeded liquid capital
+  /** [path] — "where did this path's final buy/rent wealth come from?" (PLAN.md's new "Where does the wealth come from?" chart). */
+  buyDecompositions: BuyWealthDecomposition[];
+  rentDecompositions: RentWealthDecomposition[];
+  /** [path] — realized driver levels, for the free rank-correlation tornado chart. */
+  driverSummaries: PathDriverSummary[];
 }
 
 export interface SimulationOptions {
@@ -38,6 +54,9 @@ export function runSimulation(config: ScenarioConfig, options: SimulationOptions
 
   const buyNetWorth: Float64Array[] = [];
   const rentNetWorth: Float64Array[] = [];
+  const buyDecompositions: BuyWealthDecomposition[] = [];
+  const rentDecompositions: RentWealthDecomposition[] = [];
+  const driverSummaries: PathDriverSummary[] = [];
   let affordabilityWarningPaths = 0;
 
   for (let p = 0; p < numPaths; p++) {
@@ -45,11 +64,23 @@ export function runSimulation(config: ScenarioConfig, options: SimulationOptions
     const result = runSinglePath(config, months, dt, pathRng, shockEngine);
     buyNetWorth.push(result.buyNetWorth);
     rentNetWorth.push(result.rentNetWorth);
+    buyDecompositions.push(result.buyDecomposition);
+    rentDecompositions.push(result.rentDecomposition);
+    driverSummaries.push(result.driverSummary);
     if (result.affordabilityWarning) affordabilityWarningPaths += 1;
     options.onProgress?.(p + 1, numPaths);
   }
 
-  return { numPaths, months, buyNetWorth, rentNetWorth, affordabilityWarningPaths };
+  return {
+    numPaths,
+    months,
+    buyNetWorth,
+    rentNetWorth,
+    affordabilityWarningPaths,
+    buyDecompositions,
+    rentDecompositions,
+    driverSummaries,
+  };
 }
 
 /** For an Ornstein-Uhlenbeck spec, its long-run level theta; for any other process kind, `fallback` — used so a mean-reverting rate/growth process starts already at its long-run level instead of an arbitrary 0, which would otherwise bias every path's early months low. */
@@ -117,7 +148,11 @@ function runSinglePath(
   let cumulativeInflation = 1;
   let cumulativeMaintenanceEscalation = 1;
   let incomeLevel = 1;
-  let rentLevel = resolveBaseRentMonthly(config);
+  const initialRentLevel = resolveBaseRentMonthly(config);
+  let rentLevel = initialRentLevel;
+  let cumulativeEquityGrowth = 1;
+  let cumulativeDebtGrowth = 1;
+  let loanRateSum = 0;
 
   for (let t = 0; t < months; t++) {
     const correlated = shockEngine.drawStandardNormals(rng);
@@ -138,8 +173,10 @@ function runSinglePath(
     // paths share one "annual rate per month" array shape.
     const equityMultiplier = stepCorrelated(equityProc, 1, dt, zEquity, rng);
     equityReturnAnnualPath[t] = (equityMultiplier - 1) / dt;
+    cumulativeEquityGrowth *= equityMultiplier;
     const debtMultiplier = debtProc.step(1, dt, rng);
     debtReturnAnnualPath[t] = (debtMultiplier - 1) / dt;
+    cumulativeDebtGrowth *= debtMultiplier;
 
     inflationLevel = stepCorrelated(inflationProc, inflationLevel, dt, zInflation, rng);
     cumulativeInflation *= 1 + inflationLevel * dt;
@@ -151,6 +188,7 @@ function runSinglePath(
 
     repoLevel = stepCorrelated(repoRateProc, repoLevel, dt, zRepo, rng);
     loanRateAnnualPath[t] = Math.max(0.001, repoLevel);
+    loanRateSum += loanRateAnnualPath[t]!;
 
     rentGrowthLevel = stepCorrelated(rentGrowthProc, rentGrowthLevel, dt, zRentGrowth, rng);
     rentLevel *= 1 + rentGrowthLevel * dt;
@@ -205,9 +243,23 @@ function runSinglePath(
     buyerCashOutflowPath: Float64Array.from(buyResult.months.map((m) => m.totalCashOutflow)),
   });
 
+  const years = months / 12;
+  const driverSummary: PathDriverSummary = {
+    appreciationRealized: Math.pow(propertyValuePath[months - 1]! / config.property.purchasePrice, 1 / years) - 1,
+    equityReturnRealized: Math.pow(cumulativeEquityGrowth, 1 / years) - 1,
+    debtReturnRealized: Math.pow(cumulativeDebtGrowth, 1 / years) - 1,
+    inflationRealized: Math.pow(cumulativeInflation, 1 / years) - 1,
+    rentGrowthRealized: Math.pow(rentLevelPath[months - 1]! / initialRentLevel, 1 / years) - 1,
+    repoRateRealized: loanRateSum / months,
+    incomeGrowthRealized: Math.pow(incomeLevel, 1 / years) - 1,
+  };
+
   return {
     buyNetWorth: Float64Array.from(buyResult.months.map((m) => m.netWorth)),
     rentNetWorth: Float64Array.from(rentResult.months.map((m) => m.netWorth)),
     affordabilityWarning: buyResult.affordabilityWarning,
+    buyDecomposition: buyResult.decomposition,
+    rentDecomposition: rentResult.decomposition,
+    driverSummary,
   };
 }

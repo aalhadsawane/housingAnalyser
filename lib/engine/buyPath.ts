@@ -63,11 +63,30 @@ export interface BuyPathMonth {
   netWorthAfterExitCosts: number; // what you'd actually walk away with if you sold this month
 }
 
+/**
+ * "Where did the buyer's final wealth come from?" — an exact accounting
+ * decomposition of the final month's net worth (pre-exit-cost) into its
+ * additive sources, used by the "Where does the wealth come from?" chart.
+ * By construction: downPayment + propertyAppreciationGain + principalRepaid
+ * + initialSidePortfolio + taxSavingsContributed + investmentGrowth ==
+ * homeEquity(final) + sidePortfolio(final) == netWorth (pre-exit-cost).
+ */
+export interface BuyWealthDecomposition {
+  downPayment: number;
+  propertyAppreciationGain: number; // finalPropertyValue - purchasePrice
+  principalRepaid: number; // loanPrincipal - finalLoanBalance ("forced saving")
+  initialSidePortfolio: number; // leftover W0 seeded at t=0
+  taxSavingsContributed: number; // sum of monthly Section 24(b)/80(C) savings, before any investment growth
+  investmentGrowth: number; // residual: finalSidePortfolio - initialSidePortfolio - taxSavingsContributed
+  exitCosts: number; // sale brokerage + LTCG tax at the final month (subtract to get the after-exit-cost total)
+}
+
 export interface BuyPathResult {
   months: BuyPathMonth[];
   initialSidePortfolio: number;
   dayZeroOutflow: number;
   affordabilityWarning: boolean; // true if dayZeroOutflow > liquidCapital
+  decomposition: BuyWealthDecomposition;
 }
 
 export function computeBuyPath(inputs: BuyPathInputs): BuyPathResult {
@@ -118,6 +137,7 @@ export function computeBuyPath(inputs: BuyPathInputs): BuyPathResult {
   const results: BuyPathMonth[] = [];
   let sidePortfolio = Math.max(0, initialSidePortfolio);
   let cumulativeInflationAtPurchase = 1; // cumulativeInflationPath is relative to purchase (index 0 = 1.0-ish)
+  let totalTaxSavingsContributed = 0;
 
   for (let t = 0; t < months; t++) {
     const yearIndex = Math.floor(t / 12);
@@ -164,6 +184,7 @@ export function computeBuyPath(inputs: BuyPathInputs): BuyPathResult {
       }) / 12;
     const taxSavingsThisMonth = Math.max(0, taxWithoutDeductions - taxWithDeductions);
 
+    totalTaxSavingsContributed += taxSavingsThisMonth;
     const monthlyReturn = (inputs.investmentReturnAnnualPath[t] ?? 0) / 12;
     sidePortfolio = sidePortfolio * (1 + monthlyReturn) + taxSavingsThisMonth;
 
@@ -203,5 +224,21 @@ export function computeBuyPath(inputs: BuyPathInputs): BuyPathResult {
     });
   }
 
-  return { months: results, initialSidePortfolio, dayZeroOutflow, affordabilityWarning };
+  const lastMonth = results[results.length - 1];
+  // Gross (pre-exit-cost) net worth, independent of the markToMarketContinuously
+  // toggle — `netWorth` above already nets out exit costs when that toggle is
+  // on, which would otherwise make exitCosts compute to zero here.
+  const grossFinalNetWorth = (lastMonth?.homeEquity ?? 0) + (lastMonth?.sidePortfolio ?? 0);
+  const decomposition: BuyWealthDecomposition = {
+    downPayment,
+    propertyAppreciationGain: (lastMonth?.propertyValue ?? property.purchasePrice) - property.purchasePrice,
+    principalRepaid: loanPrincipal - (lastMonth?.loanBalance ?? loanPrincipal),
+    initialSidePortfolio: Math.max(0, initialSidePortfolio),
+    taxSavingsContributed: totalTaxSavingsContributed,
+    investmentGrowth:
+      (lastMonth?.sidePortfolio ?? 0) - Math.max(0, initialSidePortfolio) - totalTaxSavingsContributed,
+    exitCosts: grossFinalNetWorth - (lastMonth?.netWorthAfterExitCosts ?? 0),
+  };
+
+  return { months: results, initialSidePortfolio, dayZeroOutflow, affordabilityWarning, decomposition };
 }

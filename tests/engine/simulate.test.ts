@@ -28,6 +28,46 @@ describe("runSimulation — shape and finiteness", () => {
       for (const v of path) expect(Number.isFinite(v)).toBe(true);
     }
   });
+
+  it("produces one decomposition and one driver summary per path, every field finite", () => {
+    expect(result.buyDecompositions.length).toBe(300);
+    expect(result.rentDecompositions.length).toBe(300);
+    expect(result.driverSummaries.length).toBe(300);
+    for (const d of result.buyDecompositions) {
+      for (const v of Object.values(d)) expect(Number.isFinite(v)).toBe(true);
+    }
+    for (const d of result.rentDecompositions) {
+      for (const v of Object.values(d)) expect(Number.isFinite(v)).toBe(true);
+    }
+    for (const d of result.driverSummaries) {
+      for (const v of Object.values(d)) expect(Number.isFinite(v)).toBe(true);
+    }
+  });
+
+  it("each path's buy decomposition sums to that path's own final buy net worth (accounting identity holds per-path, not just in aggregate)", () => {
+    for (let p = 0; p < result.numPaths; p++) {
+      const d = result.buyDecompositions[p]!;
+      const reconstructed =
+        d.downPayment +
+        d.propertyAppreciationGain +
+        d.principalRepaid +
+        d.initialSidePortfolio +
+        d.taxSavingsContributed +
+        d.investmentGrowth -
+        d.exitCosts;
+      expect(reconstructed).toBeCloseTo(result.buyNetWorth[p]![result.months - 1]!, 2);
+    }
+  });
+
+  it("realized driver summaries are centered near each driver's configured long-run level across many paths", () => {
+    const meanOf = (key: keyof (typeof result.driverSummaries)[number]) =>
+      result.driverSummaries.reduce((a, d) => a + d[key], 0) / result.driverSummaries.length;
+    // Pune default: appreciation mu=0.07, equity mu=0.11, inflation theta=0.05
+    expect(meanOf("appreciationRealized")).toBeGreaterThan(0.03);
+    expect(meanOf("appreciationRealized")).toBeLessThan(0.11);
+    expect(meanOf("equityReturnRealized")).toBeGreaterThan(0.06);
+    expect(meanOf("equityReturnRealized")).toBeLessThan(0.16);
+  });
 });
 
 describe("runSimulation — reproducibility", () => {

@@ -118,4 +118,36 @@ describe("computeBuyPath + computeRentPath — deterministic integration (Pune d
     expect(lastMonth.netWorth).toBe(lastMonth.netWorthAfterExitCosts);
     expect(lastMonth.netWorth).toBeLessThan(lastMonth.homeEquity + lastMonth.sidePortfolio);
   });
+
+  it("buy wealth decomposition sums exactly to the after-exit-cost final net worth (accounting identity)", () => {
+    const d = buyResult.decomposition;
+    const lastMonth = buyResult.months[months - 1]!;
+    const reconstructed =
+      d.downPayment +
+      d.propertyAppreciationGain +
+      d.principalRepaid +
+      d.initialSidePortfolio +
+      d.taxSavingsContributed +
+      d.investmentGrowth -
+      d.exitCosts;
+    expect(reconstructed).toBeCloseTo(lastMonth.netWorthAfterExitCosts, 4);
+  });
+
+  it("buy decomposition's exitCosts is positive and independent of the markToMarketContinuously toggle", () => {
+    // Regression guard: exitCosts must reflect the real brokerage+LTCG cost
+    // even when markToMarketContinuously=true, where `netWorth` itself
+    // already has exit costs netted out (a prior bug computed exitCosts as
+    // netWorth - netWorthAfterExitCosts, which is always 0 in that case).
+    expect(DEFAULT_SCENARIO_CONFIG.exit.markToMarketContinuously).toBe(true);
+    expect(buyResult.decomposition.exitCosts).toBeGreaterThan(0);
+  });
+
+  it("rent wealth decomposition sums exactly to final net worth (accounting identity)", () => {
+    const d = rentResult.decomposition;
+    const lastMonth = rentResult.months[months - 1]!;
+    const reconstructedSidePortfolio =
+      d.initialSidePortfolio + d.differentialContributed + d.hraTaxSavingsContributed + d.depositCashFlowContributed + d.investmentGrowth;
+    expect(reconstructedSidePortfolio).toBeCloseTo(lastMonth.sidePortfolio, 4);
+    expect(reconstructedSidePortfolio + d.finalDepositHeld).toBeCloseTo(lastMonth.netWorth, 4);
+  });
 });
