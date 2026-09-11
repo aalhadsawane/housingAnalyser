@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { computeDecisionSummary, computeFanBands, percentileOfSorted, spearmanCorrelation } from "@/lib/engine/stats";
+import {
+  computeAdvantageDecomposition,
+  computeBreakevenMonths,
+  computeDecisionSummary,
+  computeDeltaHistogramAtMonth,
+  computeFanBands,
+  computeSensitivityTornado,
+  computeWinProbabilityByMonth,
+  percentileOfSorted,
+  spearmanCorrelation,
+} from "@/lib/engine/stats";
 
 describe("percentileOfSorted", () => {
   it("matches simple hand-checkable cases", () => {
@@ -90,5 +100,91 @@ describe("spearmanCorrelation", () => {
     const x = [1, 5, 2, 4, 3, 8, 6, 7];
     const y = [4, 2, 8, 1, 7, 3, 5, 6];
     expect(Math.abs(spearmanCorrelation(x, y))).toBeLessThan(0.6);
+  });
+});
+
+describe("computeBreakevenMonths", () => {
+  it("returns the first crossing month per path, null when it never crosses", () => {
+    const buy = [Float64Array.from([1, 2, 3, 4]), Float64Array.from([10, 10, 10, 10])];
+    const rent = [Float64Array.from([5, 1, 1, 1]), Float64Array.from([20, 20, 20, 20])];
+    const result = computeBreakevenMonths(buy, rent);
+    expect(result[0]).toBe(1); // buy(2) >= rent(1) first at month 1
+    expect(result[1]).toBeNull(); // buy never reaches rent
+  });
+});
+
+describe("computeWinProbabilityByMonth", () => {
+  it("is 1.0 at a month where buy always exceeds rent, 0.0 where it never does", () => {
+    const buy = Array.from({ length: 10 }, () => Float64Array.from([100, 5]));
+    const rent = Array.from({ length: 10 }, () => Float64Array.from([50, 100]));
+    const prob = computeWinProbabilityByMonth(buy, rent);
+    expect(prob[0]).toBe(1);
+    expect(prob[1]).toBe(0);
+  });
+  it("matches a hand-countable 50/50 case exactly", () => {
+    const buy = [Float64Array.from([10]), Float64Array.from([10]), Float64Array.from([0]), Float64Array.from([0])];
+    const rent = [Float64Array.from([5]), Float64Array.from([5]), Float64Array.from([5]), Float64Array.from([5])];
+    const prob = computeWinProbabilityByMonth(buy, rent);
+    expect(prob[0]).toBe(0.5);
+  });
+});
+
+describe("computeDeltaHistogramAtMonth", () => {
+  it("bins sum to the total path count and p50 matches the true median", () => {
+    const n = 200;
+    const buy = Array.from({ length: n }, (_, i) => Float64Array.from([i]));
+    const rent = Array.from({ length: n }, () => Float64Array.from([0]));
+    const hist = computeDeltaHistogramAtMonth(buy, rent, 0, 10);
+    const totalCount = hist.bins.reduce((a, b) => a + b.count, 0);
+    expect(totalCount).toBe(n);
+    expect(hist.median).toBeCloseTo(99.5, 0);
+    expect(hist.probBuyWins).toBeCloseTo(199 / 200, 3); // delta=0 for path i=0 doesn't count as a win (d>0 strictly)
+  });
+});
+
+describe("computeAdvantageDecomposition", () => {
+  it("averages each field and the reconstructed totals match the averaged final net worths exactly", () => {
+    const buyDecomps = [
+      { downPayment: 100, propertyAppreciationGain: 50, principalRepaid: 20, initialSidePortfolio: 10, taxSavingsContributed: 5, investmentGrowth: 3, exitCosts: 8 },
+      { downPayment: 100, propertyAppreciationGain: 70, principalRepaid: 20, initialSidePortfolio: 10, taxSavingsContributed: 5, investmentGrowth: 7, exitCosts: 8 },
+    ];
+    const rentDecomps = [
+      { initialSidePortfolio: 90, differentialContributed: 30, hraTaxSavingsContributed: 2, depositCashFlowContributed: 0, investmentGrowth: 10, finalDepositHeld: 5 },
+      { initialSidePortfolio: 90, differentialContributed: 40, hraTaxSavingsContributed: 2, depositCashFlowContributed: 0, investmentGrowth: 20, finalDepositHeld: 5 },
+    ];
+    const result = computeAdvantageDecomposition(buyDecomps, rentDecomps);
+    expect(result.buy.propertyAppreciationGain).toBeCloseTo(60, 6); // avg(50,70)
+    expect(result.rent.differentialContributed).toBeCloseTo(35, 6); // avg(30,40)
+
+    const expectedBuyTotal =
+      result.buy.downPayment +
+      result.buy.propertyAppreciationGain +
+      result.buy.principalRepaid +
+      result.buy.initialSidePortfolio +
+      result.buy.taxSavingsContributed +
+      result.buy.investmentGrowth -
+      result.buy.exitCosts;
+    expect(result.buyFinalNetWorth).toBeCloseTo(expectedBuyTotal, 6);
+  });
+});
+
+describe("computeSensitivityTornado", () => {
+  it("ranks a driver that's perfectly rank-correlated with the outcome first, with the correct sign", () => {
+    const driverSummaries = Array.from({ length: 50 }, (_, i) => ({
+      appreciationRealized: i / 50, // perfectly increasing -> should correlate strongly positive with delta
+      equityReturnRealized: Math.random() * 0.01, // near-constant noise -> weak correlation
+      debtReturnRealized: 0.05,
+      inflationRealized: 0.05,
+      rentGrowthRealized: -(i / 50), // perfectly decreasing -> should correlate strongly negative
+      repoRateRealized: 0.08,
+      incomeGrowthRealized: 0.06,
+    }));
+    const buy = driverSummaries.map((_, i) => Float64Array.from([i]));
+    const rent = driverSummaries.map(() => Float64Array.from([25]));
+    const tornado = computeSensitivityTornado(driverSummaries, buy, rent);
+    expect(tornado[0]!.driver).toBe("appreciationRealized");
+    expect(tornado[0]!.correlation).toBeGreaterThan(0.9);
+    const rentGrowthEntry = tornado.find((t) => t.driver === "rentGrowthRealized")!;
+    expect(rentGrowthEntry.correlation).toBeLessThan(-0.9);
   });
 });
