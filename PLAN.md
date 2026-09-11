@@ -278,11 +278,21 @@ touching any other part of the model.
 > Charts get designed under the `dataviz` skill (consistent palette, light/dark, accessible).
 > Every chart has a one-line "how to read this" and exports to PNG/SVG/CSV.
 
+> **Revision (client feedback, v2):** the original design led with the fan chart below as the
+> hero — several non-technical clients could not decipher it. The dashboard now leads with
+> decision-oriented outputs instead (P(buy wins) by horizon, a breakeven-year histogram,
+> small-multiple wealth-difference distributions at several horizons, a plain-language "THE
+> DECISION" header, a sensitivity tornado computed free from the existing Monte Carlo run,
+> and a "where does the wealth come from?" wealth decomposition), with the fan chart demoted
+> to a collapsed "detailed trajectories" section for readers who want it. All of the below are
+> now **built** (see `components/charts/`, `components/DecisionHeader.tsx`) except items 6, 8,
+> 11-15, which remain as designed but not yet implemented — see the note after item 5.
+
 **Required by you — the time comparison:**
 1. **Net worth vs. time, Buy vs Rent — fan chart.** Two median lines, each with 10/25/75/90
    percentile bands, the **crossover point annotated**, and a shaded region showing where
    the two distributions overlap (i.e. where the "winner" is not statistically meaningful).
-   This is the hero chart.
+   Originally the hero chart; now a secondary, collapsed section (see the revision note above).
 
 **The decision:**
 2. **Distribution of ΔNW = NW_buy − NW_rent at horizon** — KDE/histogram with P(buy wins),
@@ -298,8 +308,20 @@ touching any other part of the model.
    correlations of each sampled input against ΔNW, computed from the *existing* paths
    (free). Answers "what actually decides this?" — usually appreciation drift vs equity
    return, and almost never property tax.
+5.5. **"Where does the wealth come from?"** *(added in v2, not in the original list)* — two
+   stacked bars, Buy vs Rent, each an exact accounting decomposition of that branch's own
+   average final wealth (down payment, appreciation, principal paydown, tax savings, and
+   investment growth for Buy; initial capital, invested cash-flow differential, HRA savings,
+   and investment growth for Rent). Answers *why* one branch wins, as a complement to the
+   tornado's *what*. Chosen over a signed delta-waterfall because the two branches' cash
+   flows aren't symmetric (see `components/charts/AdvantageDecomposition.tsx`'s doc comment).
 6. **Two-way heatmap of P(buy wins)** over any two chosen parameters (e.g. appreciation
    drift × equity return; price × rental yield), with the indifference contour drawn at 50%.
+   **Not yet implemented** — needs ~25 re-runs of the simulation (a grid of parameter
+   combinations) rather than being free from the existing paths like items 2-5 are; the
+   natural next step once an opt-in "compute scenario grid" UX is designed (background run
+   with its own progress bar, ~20-30s). Items 8 and 11-15 below are likewise designed but not
+   yet built.
 7. **Indifference curve**: required property appreciation to break even, as a function of
    horizon, given your equity assumption. The cleanest single statement the model can make.
 8. *(Phase 7, offline/opt-in)* **Sobol first-order & total-effect indices** — interaction
