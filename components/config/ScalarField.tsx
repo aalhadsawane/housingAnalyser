@@ -109,7 +109,7 @@ export function Section({ title, children, defaultOpen = true }: { title: string
         <span className="inline-block transition-transform group-open:rotate-90 text-neutral-400">▸</span>
         {title}
       </summary>
-      <div className="mt-2 grid gap-2 pl-4">{children}</div>
+      <div className="mt-2 grid grid-cols-1 gap-2 pl-4">{children}</div>
     </details>
   );
 }

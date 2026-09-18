@@ -64,11 +64,11 @@ export function ProcessCard({ label, spec, onChange, unit, initialLevel, monthsP
   return (
     <div className="rounded-lg border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] p-3.5">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium">{label}</span>
+        <span className="min-w-0 truncate text-sm font-medium">{label}</span>
         <select
           value={spec.kind}
           onChange={(e) => handleKindChange(e.target.value as ProcessKind)}
-          className="rounded border border-black/15 dark:border-white/15 bg-transparent px-1.5 py-0.5 text-xs font-medium text-[#6d67e4]"
+          className="min-w-0 max-w-[55%] rounded border border-black/15 dark:border-white/15 bg-transparent px-1.5 py-0.5 text-xs font-medium text-[#6d67e4]"
         >
           {PROCESS_KINDS.map((k) => (
             <option key={k} value={k}>
@@ -80,7 +80,7 @@ export function ProcessCard({ label, spec, onChange, unit, initialLevel, monthsP
 
       <PathPreview spec={spec} initialLevel={initialLevel} months={monthsPreview} />
 
-      <div className="mt-2 grid gap-2">
+      <div className="mt-2 grid grid-cols-1 gap-2">
         {spec.kind === "iid" && (
           <DistributionCard label="Draw" spec={spec.shock} onChange={(s) => onChange({ ...spec, shock: s })} unit={unit} compact formatValue={formatValue} />
         )}
@@ -180,7 +180,7 @@ function RegimeSwitchingEditor({
   formatValue?: (x: number) => string;
 }) {
   return (
-    <div className="grid gap-2">
+    <div className="grid grid-cols-1 gap-2">
       {spec.regimes.map((regime, i) => (
         <DistributionCard
           key={i}
@@ -230,7 +230,7 @@ function BlockBootstrapEditor({
   onChange: (s: ProcessSpec) => void;
 }) {
   return (
-    <div className="grid gap-1.5">
+    <div className="grid grid-cols-1 gap-1.5">
       <textarea
         defaultValue={spec.historicalReturns.join(", ")}
         onChange={(e) => {

@@ -136,7 +136,7 @@ export default function Home() {
               Configure the scenario on the left, then run the simulation to see the decision.
             </div>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid grid-cols-1 gap-4">
               {run.result.affordabilityWarningPaths > 0 && (
                 <div className="rounded-lg border border-amber-400/40 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
                   <b>Heads up:</b> the down payment plus closing costs (stamp duty, registration, brokerage, parking,
@@ -148,7 +148,7 @@ export default function Home() {
               )}
               <DecisionHeader summary={summary} horizonYears={config.meta.horizonYears} />
 
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                   {winProbabilityByMonth && <WinProbabilityChart winProbabilityByMonth={winProbabilityByMonth} />}
                 </div>
@@ -165,7 +165,7 @@ export default function Home() {
                 {deltaHistograms && <WealthDifferenceDistributions histograms={deltaHistograms} />}
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <div className="rounded-xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                   {tornado && <SensitivityTornado entries={tornado} />}
                 </div>
