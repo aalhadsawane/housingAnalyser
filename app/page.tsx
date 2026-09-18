@@ -112,7 +112,7 @@ export default function Home() {
         </p>
       </header>
 
-      <div className="flex flex-1 gap-4 px-4 py-3">
+      <div className="flex flex-1 flex-col gap-4 px-4 py-3 lg:flex-row">
         <ParameterRail />
 
         <main className="min-w-0 flex-1 pb-24">

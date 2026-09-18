@@ -18,10 +18,18 @@ export function SensitivityTornado({ entries }: { entries: TornadoEntry[] }) {
 
     const rows = entries.map((e) => ({ label: e.label, value: e.correlation }));
 
+    // Defensive floor: 150px comfortably fits the longest label
+    // ("Property appreciation") at every width this app has been tested
+    // at, but never let the label margin eat more than half the
+    // container -- protects against a negative plotting-area width if
+    // some future layout change squeezes this container very narrow.
+    const width = containerRef.current.clientWidth || 420;
+    const marginLeft = Math.min(150, Math.max(60, width * 0.5));
+
     const plot = Plot.plot({
-      width: containerRef.current.clientWidth || 420,
+      width,
       height: rows.length * 34 + 20,
-      marginLeft: 150,
+      marginLeft,
       marginBottom: 30,
       x: { label: "← favors renting     favors buying →", domain: [-1, 1], tickFormat: () => "" },
       y: { label: null },
