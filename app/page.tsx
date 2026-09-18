@@ -6,6 +6,7 @@ import { BreakevenHistogram } from "@/components/charts/BreakevenHistogram";
 import { NetWorthFanChart } from "@/components/charts/NetWorthFanChart";
 import { SensitivityTornado } from "@/components/charts/SensitivityTornado";
 import { WealthDifferenceDistributions } from "@/components/charts/WealthDifferenceDistributions";
+import { WinnerMarginChart } from "@/components/charts/WinnerMarginChart";
 import { WinProbabilityChart } from "@/components/charts/WinProbabilityChart";
 import { ParameterRail } from "@/components/config/ParameterRail";
 import { DecisionHeader } from "@/components/DecisionHeader";
@@ -16,6 +17,7 @@ import {
   computeDeltaHistogramAtMonth,
   computeFanBands,
   computeSensitivityTornado,
+  computeWinnerMarginByMonth,
   computeWinProbabilityByMonth,
 } from "@/lib/engine/stats";
 import { createSimulationWorker, type SimulationHandle } from "@/lib/simulationClient";
@@ -59,6 +61,11 @@ export default function Home() {
   const breakevenMonths = useMemo(() => {
     if (!run.result) return null;
     return computeBreakevenMonths(run.result.buyNetWorth, run.result.rentNetWorth);
+  }, [run.result]);
+
+  const winnerMarginByMonth = useMemo(() => {
+    if (!run.result) return null;
+    return computeWinnerMarginByMonth(run.result.buyNetWorth, run.result.rentNetWorth);
   }, [run.result]);
 
   const deltaHistograms = useMemo(() => {
@@ -130,6 +137,10 @@ export default function Home() {
                 <div className="rounded-xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
                   {breakevenMonths && <BreakevenHistogram breakevenMonths={breakevenMonths} />}
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                {winnerMarginByMonth && <WinnerMarginChart points={winnerMarginByMonth} />}
               </div>
 
               <div className="rounded-xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">

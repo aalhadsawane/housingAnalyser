@@ -64,6 +64,31 @@ export function DecisionHeader({ summary, horizonYears }: { summary: DecisionSum
           <div className="mt-1 text-[12px] text-neutral-500">of scenarios, buying never catches up at all</div>
         </div>
       </div>
+
+      {/* Not just who wins, but by how much -- the win-rate above can look
+          close (e.g. 50/50) while one side's typical margin of victory
+          dwarfs the other's, or vice versa. This row makes that visible. */}
+      <div className="mt-4 border-t border-black/10 pt-3 text-[12px] dark:border-white/10">
+        <span className="text-neutral-500">When each side wins, how much does it win by? </span>
+        {summary.medianMarginWhenBuyWins !== null && (
+          <span>
+            Buying, when it wins, typically wins by{" "}
+            <b style={{ color: "#6d67e4" }}>{formatCurrency(summary.medianMarginWhenBuyWins)}</b>.{" "}
+          </span>
+        )}
+        {summary.medianMarginWhenRentWins !== null && (
+          <span>
+            Renting, when it wins, typically wins by{" "}
+            <b style={{ color: "#e48a67" }}>{formatCurrency(summary.medianMarginWhenRentWins)}</b>.
+          </span>
+        )}
+        {summary.medianMarginWhenBuyWins === null && (
+          <span>Buying never wins in these scenarios, so it has no winning margin to report.</span>
+        )}
+        {summary.medianMarginWhenRentWins === null && (
+          <span>Renting never wins in these scenarios, so it has no winning margin to report.</span>
+        )}
+      </div>
     </div>
   );
 }

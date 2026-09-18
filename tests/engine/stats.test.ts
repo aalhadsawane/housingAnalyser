@@ -6,6 +6,7 @@ import {
   computeDeltaHistogramAtMonth,
   computeFanBands,
   computeSensitivityTornado,
+  computeWinnerMarginByMonth,
   computeWinProbabilityByMonth,
   percentileOfSorted,
   spearmanCorrelation,
@@ -82,6 +83,54 @@ describe("computeDecisionSummary", () => {
     const rent = Array.from({ length: n }, () => Float64Array.from([50]));
     const summary = computeDecisionSummary(buy, rent);
     expect(summary.probBuyWins).toBeCloseTo(0.5, 1);
+  });
+
+  it("reports the margin of victory separately for each side, not just who wins how often", () => {
+    // 10 paths where buy wins by exactly 100, 10 where rent wins by exactly 500 -- a close
+    // win rate (50/50) hiding a landslide in magnitude, which medianDelta alone would also
+    // show but only as a signed net figure, not as "each side's own typical margin".
+    const buy = [
+      ...Array.from({ length: 10 }, () => Float64Array.from([600])),
+      ...Array.from({ length: 10 }, () => Float64Array.from([0])),
+    ];
+    const rent = [
+      ...Array.from({ length: 10 }, () => Float64Array.from([500])),
+      ...Array.from({ length: 10 }, () => Float64Array.from([500])),
+    ];
+    const summary = computeDecisionSummary(buy, rent);
+    expect(summary.probBuyWins).toBeCloseTo(0.5, 6);
+    expect(summary.medianMarginWhenBuyWins).toBeCloseTo(100, 6);
+    expect(summary.medianMarginWhenRentWins).toBeCloseTo(500, 6);
+  });
+
+  it("medianMarginWhenRentWins is null when rent never wins", () => {
+    const buy = Array.from({ length: 10 }, () => Float64Array.from([100]));
+    const rent = Array.from({ length: 10 }, () => Float64Array.from([50]));
+    const summary = computeDecisionSummary(buy, rent);
+    expect(summary.medianMarginWhenRentWins).toBeNull();
+    expect(summary.medianMarginWhenBuyWins).toBeCloseTo(50, 6);
+  });
+});
+
+describe("computeWinnerMarginByMonth", () => {
+  it("tracks margin-of-victory over time independently of win probability", () => {
+    // Month 0: buy wins all 10 paths by 100. Month 1: buy wins only 5 of 10, by 300 each;
+    // the other 5 rent wins by 50 each. probBuyWins should drop 1.0 -> 0.5, while
+    // medianMarginWhenBuyWins should actually INCREASE (100 -> 300).
+    const buy = [
+      ...Array.from({ length: 5 }, () => Float64Array.from([200, 400])),
+      ...Array.from({ length: 5 }, () => Float64Array.from([200, 100])),
+    ];
+    const rent = [
+      ...Array.from({ length: 5 }, () => Float64Array.from([100, 100])),
+      ...Array.from({ length: 5 }, () => Float64Array.from([100, 150])),
+    ];
+    const points = computeWinnerMarginByMonth(buy, rent);
+    expect(points[0]!.probBuyWins).toBe(1);
+    expect(points[0]!.medianMarginWhenBuyWins).toBeCloseTo(100, 6);
+    expect(points[1]!.probBuyWins).toBeCloseTo(0.5, 6);
+    expect(points[1]!.medianMarginWhenBuyWins).toBeCloseTo(300, 6);
+    expect(points[1]!.medianMarginWhenRentWins).toBeCloseTo(50, 6);
   });
 });
 

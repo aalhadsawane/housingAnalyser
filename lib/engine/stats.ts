@@ -55,8 +55,20 @@ export function computeFanBands(paths: Float64Array[]): FanBand[] {
 
 export interface DecisionSummary {
   probBuyWins: number;
-  medianDelta: number; // median(buy_final - rent_final)
+  medianDelta: number; // median(buy_final - rent_final) -- signed: positive favors buying
   meanDelta: number;
+  /**
+   * "How often does the winner beat the loser, and by how much" (not just
+   * "how often does buy win"): the median MAGNITUDE of the advantage,
+   * computed separately within the subset of scenarios where each side
+   * won. A modest probBuyWins can still be a close race if
+   * medianMarginWhenBuyWins and medianMarginWhenRentWins are similar in
+   * size -- or a landslide if medianMarginWhenRentWins dwarfs
+   * medianMarginWhenBuyWins even though buy wins slightly more often.
+   * `null` when that side never won at the horizon.
+   */
+  medianMarginWhenBuyWins: number | null;
+  medianMarginWhenRentWins: number | null;
   cvar5Buy: number; // mean of the worst 5% of buy's own final-net-worth outcomes
   cvar5Rent: number;
   breakevenMonthMedian: number | null; // median month (across paths that DO cross) that buy first overtakes rent
@@ -119,11 +131,18 @@ export function computeDecisionSummary(buy: Float64Array[], rent: Float64Array[]
   const sortedBreakevens = [...crossedMonths].sort((a, b) => a - b);
 
   const winCount = deltas.filter((d) => d > 0).length;
+  const buyWinMargins = deltas.filter((d) => d > 0).sort((a, b) => a - b);
+  const rentWinMargins = deltas
+    .filter((d) => d < 0)
+    .map((d) => -d)
+    .sort((a, b) => a - b);
 
   return {
     probBuyWins: winCount / n,
     medianDelta: percentileOfSorted(sortedDeltas, 0.5),
     meanDelta: deltas.reduce((a, b) => a + b, 0) / n,
+    medianMarginWhenBuyWins: buyWinMargins.length > 0 ? percentileOfSorted(buyWinMargins, 0.5) : null,
+    medianMarginWhenRentWins: rentWinMargins.length > 0 ? percentileOfSorted(rentWinMargins, 0.5) : null,
     cvar5Buy: cvarLowTail(sortedBuyFinals),
     cvar5Rent: cvarLowTail(sortedRentFinals),
     breakevenMonthMedian: sortedBreakevens.length > 0 ? percentileOfSorted(sortedBreakevens, 0.5) : null,
@@ -146,6 +165,46 @@ export function computeWinProbabilityByMonth(buy: Float64Array[], rent: Float64A
     prob[t] = wins / n;
   }
   return prob;
+}
+
+export interface WinnerMarginPoint {
+  month: number;
+  probBuyWins: number;
+  /** Median size of the advantage, within just the scenarios where buy was ahead at this month. Answers "when buying is winning, how much is it winning by?" -- not answerable from probBuyWins alone. */
+  medianMarginWhenBuyWins: number | null;
+  medianMarginWhenRentWins: number | null;
+}
+
+/**
+ * The time-series companion to computeWinProbabilityByMonth: at every
+ * month, splits paths into "buy is ahead" / "rent is ahead" and reports
+ * the median MAGNITUDE of the lead within each group. A chart showing
+ * probBuyWins alone can make a 51%-49% coin flip look identical to a
+ * blowout, if the loser's edge (when it does win) is tiny either way --
+ * this is the number that tells them apart.
+ */
+export function computeWinnerMarginByMonth(buy: Float64Array[], rent: Float64Array[]): WinnerMarginPoint[] {
+  const n = buy.length;
+  const months = buy[0]?.length ?? 0;
+  const result: WinnerMarginPoint[] = new Array(months);
+  for (let t = 0; t < months; t++) {
+    const buyMargins: number[] = [];
+    const rentMargins: number[] = [];
+    for (let p = 0; p < n; p++) {
+      const d = buy[p]![t]! - rent[p]![t]!;
+      if (d > 0) buyMargins.push(d);
+      else if (d < 0) rentMargins.push(-d);
+    }
+    buyMargins.sort((a, b) => a - b);
+    rentMargins.sort((a, b) => a - b);
+    result[t] = {
+      month: t,
+      probBuyWins: buyMargins.length / n,
+      medianMarginWhenBuyWins: buyMargins.length > 0 ? percentileOfSorted(buyMargins, 0.5) : null,
+      medianMarginWhenRentWins: rentMargins.length > 0 ? percentileOfSorted(rentMargins, 0.5) : null,
+    };
+  }
+  return result;
 }
 
 export interface HistogramBin {
