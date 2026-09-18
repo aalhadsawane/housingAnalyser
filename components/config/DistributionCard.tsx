@@ -126,11 +126,11 @@ export function DistributionCard({
       className={`rounded-lg border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/[0.03] ${compact ? "p-2.5" : "p-3.5"}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className={`font-medium ${compact ? "text-xs" : "text-sm"}`}>{label}</span>
+        <span className={`min-w-0 truncate font-medium ${compact ? "text-xs" : "text-sm"}`}>{label}</span>
         <select
           value={spec.family}
           onChange={(e) => handleFamilyChange(e.target.value as DistributionFamily)}
-          className="rounded border border-black/15 dark:border-white/15 bg-transparent px-1.5 py-0.5 text-xs font-medium text-[#6d67e4]"
+          className="min-w-0 max-w-[55%] rounded border border-black/15 dark:border-white/15 bg-transparent px-1.5 py-0.5 text-xs font-medium text-[#6d67e4]"
         >
           {DISTRIBUTION_FAMILIES.map((f) => (
             <option key={f} value={f}>
@@ -166,7 +166,7 @@ export function DistributionCard({
           </div>
 
           {entryMode === "params" ? (
-            <div className="mt-1.5 grid gap-1.5">
+            <div className="mt-1.5 grid grid-cols-1 gap-1.5">
               {familyMeta.label !== "Fixed"
                 ? Object.entries(spec.params).map(([key, value]) => {
                     const range = suggestedRange(key, value);
@@ -314,7 +314,7 @@ function MixtureEditor({
   const [a, b] = spec.components!;
   const weightA = spec.params.weightA ?? 0.5;
   return (
-    <div className="mt-1.5 grid gap-2">
+    <div className="mt-1.5 grid grid-cols-1 gap-2">
       <ParamSlider
         label="weight on regime A"
         value={weightA}
@@ -323,7 +323,7 @@ function MixtureEditor({
         step={0.01}
         onChange={(v) => onChange({ ...spec, params: { ...spec.params, weightA: v } })}
       />
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <DistributionCard
           label="Regime A"
           spec={a}

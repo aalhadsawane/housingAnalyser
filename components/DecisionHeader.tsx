@@ -39,7 +39,7 @@ export function DecisionHeader({ summary, horizonYears }: { summary: DecisionSum
   return (
     <div className="rounded-xl border border-black/10 bg-white/70 px-5 py-4 dark:border-white/10 dark:bg-white/[0.03]">
       <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-wide text-neutral-400">The decision</h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <div className="text-[26px] font-semibold leading-none" style={{ color: winPct >= 50 ? "#6d67e4" : "#e48a67" }}>
             {winPct}%

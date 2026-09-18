@@ -12,8 +12,26 @@
   }
 }
 
+/*
+ * Hard structural guarantee against horizontal scroll on any screen size,
+ * regardless of what causes it. This is a deliberate backstop, not a
+ * substitute for the responsive layout itself (app/page.tsx's flex-col/
+ * lg:flex-row split, ParameterRail's width classes) -- those are what
+ * make the content actually usable at phone widths. This rule exists so
+ * that if any element anywhere ever renders wider than the viewport (a
+ * future regression, an edge-case input value, a browser quirk this repo
+ * wasn't tested against), the page clips it instead of becoming
+ * horizontally pannable and stranding controls like the Run button off
+ * to the side.
+ */
+html {
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+  max-width: 100vw;
 }

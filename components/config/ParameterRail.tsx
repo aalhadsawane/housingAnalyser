@@ -29,7 +29,7 @@ export function ParameterRail() {
   return (
     <aside className="w-full shrink-0 overflow-y-auto px-3 pb-24 text-[13px] lg:max-w-sm">
       <Section title="City & scenario">
-        <label className="grid gap-1 text-[12px]">
+        <label className="grid grid-cols-1 gap-1 text-[12px]">
           <span className="text-neutral-600 dark:text-neutral-300">Starting point: a real city preset</span>
           <select
             value={config.property.cityPresetId in CITY_PRESETS ? config.property.cityPresetId : "custom"}
