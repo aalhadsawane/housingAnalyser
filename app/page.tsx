@@ -128,6 +128,15 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid gap-4">
+              {run.result.affordabilityWarningPaths > 0 && (
+                <div className="rounded-lg border border-amber-400/40 bg-amber-50 px-4 py-2.5 text-[12px] text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                  <b>Heads up:</b> the down payment plus closing costs (stamp duty, registration, brokerage, parking,
+                  society corpus and interiors) for this property come to more than your stated savings. This
+                  scenario is only reachable by borrowing more of the purchase price, saving more first, or choosing
+                  a lower purchase price — the simulation still runs, but treat its buy-side numbers as a stretch
+                  case, not a comfortable one.
+                </div>
+              )}
               <DecisionHeader summary={summary} horizonYears={config.meta.horizonYears} />
 
               <div className="grid gap-4 lg:grid-cols-2">
