@@ -97,9 +97,18 @@ export default function Home() {
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-black/10 px-4 py-3 dark:border-white/10">
         <h1 className="text-[17px] font-semibold tracking-tight">Rent vs. Buy — Stochastic Housing Workbench</h1>
-        <p className="text-[12px] text-neutral-500">
-          Every input on the left is a random variable you control — its distribution family is always named, and
-          you can change it. Results below are a distribution of outcomes, not a single guess.
+        <div className="mt-2 rounded-md border border-[#6d67e4]/25 bg-[#6d67e4]/[0.06] px-3 py-2 text-[12px] leading-snug dark:bg-[#6d67e4]/[0.1]">
+          <b className="text-[#6d67e4]">Most rent-vs-buy calculators make you type one guess</b> — &quot;inflation
+          will be 7%.&quot; That guess is almost always wrong, and the calculator never tells you how much the
+          answer would change if it were. <b>Every single input on the left is a full range of possibilities, not a
+          fixed number</b> — you can say &quot;inflation is probably 6%, but could plausibly be anywhere from 4% to
+          9%,&quot; and the tool runs thousands of futures consistent with that belief instead of just one. The
+          result isn&apos;t &quot;buying wins&quot; or &quot;renting wins&quot; — it&apos;s a real distribution of
+          outcomes, with the uncertainty still visible in the answer instead of quietly erased before you ever see
+          it.
+        </div>
+        <p className="mt-1.5 text-[11px] text-neutral-500">
+          Every distribution family is always named on its card, and you can change it with two clicks.
         </p>
       </header>
 
