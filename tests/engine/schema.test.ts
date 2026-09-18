@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createRng } from "@/lib/engine/rng";
-import { DEFAULT_SCENARIO_CONFIG } from "@/lib/engine/defaults";
+import { CITY_PRESETS, CITY_PRESET_LIST, DEFAULT_SCENARIO_CONFIG } from "@/lib/engine/defaults";
 import { buildDistribution, buildProcess } from "@/lib/engine/factory";
 import { scenarioConfigSchema } from "@/lib/engine/schema";
 
@@ -70,5 +70,44 @@ describe("scenarioConfigSchema + DEFAULT_SCENARIO_CONFIG (Pune preset)", () => {
     const { correlationMatrix, correlationDriverOrder } = DEFAULT_SCENARIO_CONFIG.macro;
     expect(correlationMatrix.length).toBe(correlationDriverOrder.length);
     for (const row of correlationMatrix) expect(row.length).toBe(correlationDriverOrder.length);
+  });
+});
+
+describe("CITY_PRESETS -- every region preset (Mumbai, Bengaluru, Delhi NCR, Pune)", () => {
+  it("every preset validates against the schema and is internally distinct", () => {
+    expect(CITY_PRESET_LIST.length).toBeGreaterThanOrEqual(4);
+    const purchasePrices = new Set<number>();
+    for (const { id } of CITY_PRESET_LIST) {
+      const config = CITY_PRESETS[id]!;
+      expect(() => scenarioConfigSchema.parse(config)).not.toThrow();
+      expect(config.property.cityPresetId).toBe(id);
+      purchasePrices.add(config.property.purchasePrice);
+    }
+    // Each city should actually have its own price point, not all fall back to one default.
+    expect(purchasePrices.size).toBe(CITY_PRESET_LIST.length);
+  });
+
+  it("every preset's process/distribution specs build into working Strategy instances", () => {
+    const rng = createRng(1);
+    for (const config of Object.values(CITY_PRESETS)) {
+      const specs = [
+        config.macro.appreciationProcess,
+        config.loan.floatingRateProcess,
+        config.rent.rentHikeProcess,
+        config.investment.equityReturnProcess,
+        config.macro.inflationProcess,
+      ];
+      for (const spec of specs) {
+        const proc = buildProcess(spec);
+        const path = proc.simulatePath(1, 12, 1 / 12, rng);
+        for (const v of path) expect(Number.isFinite(v)).toBe(true);
+      }
+    }
+  });
+
+  it("Mumbai is tagged metro and Pune/Bengaluru are non-metro for the HRA rule (a real, commonly-missed distinction)", () => {
+    expect(CITY_PRESETS.mumbai!.tax.isMetroForHRA).toBe(true);
+    expect(CITY_PRESETS.pune!.tax.isMetroForHRA).toBe(false);
+    expect(CITY_PRESETS.bengaluru!.tax.isMetroForHRA).toBe(false);
   });
 });

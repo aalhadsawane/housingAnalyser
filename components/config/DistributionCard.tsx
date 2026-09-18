@@ -24,6 +24,30 @@ export interface DistributionCardProps {
 }
 
 /** Heuristic slider range for a raw numeric param — deliberately generic (keyed off the value's own magnitude and a few common naming conventions) rather than hardcoded per real-world factor, so this one card works for every one of the 60+ stochastic slots in the schema without per-field configuration. */
+/** Plain-language caption for the most common parameter names across every distribution family — layman-friendly by default, without hardcoding per-factor text (that lives in ParameterRail's `help` props for the fields where a more specific sentence helps). */
+export function genericParamHelp(key: string): string | undefined {
+  const table: Record<string, string> = {
+    mu: "The average/typical value this lands on — the center of the range.",
+    muLog: "Sets the median value (this parameter is in log-space, so it doesn't read directly as a plain number).",
+    sigma: "How spread out the values are around the average. Bigger = less certain, wider range of outcomes.",
+    sigmaLog: "How spread out the values are, in log-space — bigger means a wider range of plausible outcomes.",
+    df: "Controls how 'fat' the extreme tails are. Smaller = more room for surprising/extreme outcomes; larger = closer to a plain bell curve.",
+    min: "The lowest value you consider plausible.",
+    max: "The highest value you consider plausible.",
+    mode: "The single most likely value, between min and max.",
+    lambda: "How often this happens: an average number of occurrences per year (0.3 means roughly once every ~3 years).",
+    shape: "Controls the shape of the curve — how lopsided/skewed it is.",
+    scale: "Controls the overall size of typical values, keeping the shape the same.",
+    alpha: "Pulls the distribution toward the lower end when small, toward the upper end when large.",
+    beta: "Pulls the distribution toward the upper end when small, toward the lower end when large.",
+    a: "The lower bound.",
+    b: "The upper bound.",
+    weightA: "How often the first regime applies vs. the second — 0.8 means the first regime happens 80% of the time.",
+    value: "The fixed number used every time — no randomness.",
+  };
+  return table[key];
+}
+
 export function suggestedRange(key: string, value: number): { min: number; max: number; step: number } {
   if (/Pct$|Fraction$|^weightA$|^lambda$/i.test(key) && value >= 0 && value <= 1) {
     return { min: 0, max: 1, step: 0.001 };
@@ -152,6 +176,7 @@ export function DistributionCard({
                         label={key}
                         value={value}
                         {...range}
+                        help={genericParamHelp(key)}
                         onChange={(v) => handleParamChange(key, v)}
                       />
                     );
@@ -161,6 +186,7 @@ export function DistributionCard({
                       label="value"
                       value={spec.params.value ?? 0}
                       {...suggestedRange("value", spec.params.value ?? 0)}
+                      help={genericParamHelp("value")}
                       onChange={(v) => handleParamChange("value", v)}
                     />
                   )}
@@ -205,6 +231,7 @@ export function ParamSlider({
   min,
   max,
   step,
+  help,
   onChange,
 }: {
   label: string;
@@ -212,6 +239,8 @@ export function ParamSlider({
   min: number;
   max: number;
   step: number;
+  /** Plain-language explanation of what this number means and what raising/lowering it does — shown as a small caption under the slider. */
+  help?: string;
   onChange: (v: number) => void;
 }) {
   return (
@@ -233,6 +262,7 @@ export function ParamSlider({
         onChange={(e) => onChange(Number(e.target.value))}
         className="col-span-2 h-1 accent-[#6d67e4]"
       />
+      {help && <span className="col-span-2 text-[10px] text-neutral-400">{help}</span>}
     </label>
   );
 }

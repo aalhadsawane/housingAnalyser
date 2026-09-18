@@ -87,26 +87,74 @@ export function ProcessCard({ label, spec, onChange, unit, initialLevel, monthsP
 
         {spec.kind === "ornsteinUhlenbeck" && (
           <>
-            <ParamSlider label="kappa (speed of reversion)" value={spec.kappa} {...suggestedRange("kappa", spec.kappa)} onChange={(v) => onChange({ ...spec, kappa: v })} />
-            <ParamSlider label={`theta (long-run level)`} value={spec.theta} {...suggestedRange("theta", spec.theta)} onChange={(v) => onChange({ ...spec, theta: v })} />
-            <ParamSlider label="sigma (volatility)" value={spec.sigma} {...suggestedRange("sigma", spec.sigma)} onChange={(v) => onChange({ ...spec, sigma: v })} />
+            <ParamSlider
+              label="kappa (speed of reversion)"
+              value={spec.kappa}
+              {...suggestedRange("kappa", spec.kappa)}
+              help="How fast this snaps back to its long-run level after a shock. Higher = bounces back within a year or two (stable); lower = a shock can linger for many years."
+              onChange={(v) => onChange({ ...spec, kappa: v })}
+            />
+            <ParamSlider
+              label="theta (long-run level)"
+              value={spec.theta}
+              {...suggestedRange("theta", spec.theta)}
+              help="The level this reverts to over time — set this to what you believe the long-run 'normal' value actually is today."
+              onChange={(v) => onChange({ ...spec, theta: v })}
+            />
+            <ParamSlider
+              label="sigma (volatility)"
+              value={spec.sigma}
+              {...suggestedRange("sigma", spec.sigma)}
+              help="How much this can wobble month to month. Higher = less predictable, wider range of paths."
+              onChange={(v) => onChange({ ...spec, sigma: v })}
+            />
             <DistributionCard label="Innovation shape" spec={spec.shock} onChange={(s) => onChange({ ...spec, shock: s })} compact formatValue={formatValue} />
           </>
         )}
 
         {spec.kind === "gbm" && (
           <>
-            <ParamSlider label="mu (drift)" value={spec.mu} {...suggestedRange("mu", spec.mu)} onChange={(v) => onChange({ ...spec, mu: v })} />
-            <ParamSlider label="sigma (volatility)" value={spec.sigma} {...suggestedRange("sigma", spec.sigma)} onChange={(v) => onChange({ ...spec, sigma: v })} />
+            <ParamSlider
+              label="mu (drift)"
+              value={spec.mu}
+              {...suggestedRange("mu", spec.mu)}
+              help="The average yearly growth rate you expect — this is the single most important number in this card."
+              onChange={(v) => onChange({ ...spec, mu: v })}
+            />
+            <ParamSlider
+              label="sigma (volatility)"
+              value={spec.sigma}
+              {...suggestedRange("sigma", spec.sigma)}
+              help="How uncertain that growth rate is, year to year. Higher = wider range of good and bad years."
+              onChange={(v) => onChange({ ...spec, sigma: v })}
+            />
             <DistributionCard label="Log-return shape" spec={spec.shock} onChange={(s) => onChange({ ...spec, shock: s })} compact formatValue={formatValue} />
           </>
         )}
 
         {spec.kind === "mertonJump" && (
           <>
-            <ParamSlider label="mu (drift)" value={spec.mu} {...suggestedRange("mu", spec.mu)} onChange={(v) => onChange({ ...spec, mu: v })} />
-            <ParamSlider label="sigma (volatility)" value={spec.sigma} {...suggestedRange("sigma", spec.sigma)} onChange={(v) => onChange({ ...spec, sigma: v })} />
-            <ParamSlider label="lambda (jumps/year)" value={spec.lambda} {...suggestedRange("lambda", spec.lambda)} onChange={(v) => onChange({ ...spec, lambda: v })} />
+            <ParamSlider
+              label="mu (drift)"
+              value={spec.mu}
+              {...suggestedRange("mu", spec.mu)}
+              help="The average yearly growth rate in normal (non-jump) times."
+              onChange={(v) => onChange({ ...spec, mu: v })}
+            />
+            <ParamSlider
+              label="sigma (volatility)"
+              value={spec.sigma}
+              {...suggestedRange("sigma", spec.sigma)}
+              help="Normal month-to-month wobble, separate from the rare jumps below."
+              onChange={(v) => onChange({ ...spec, sigma: v })}
+            />
+            <ParamSlider
+              label="lambda (jumps/year)"
+              value={spec.lambda}
+              {...suggestedRange("lambda", spec.lambda)}
+              help="How often a sudden jump (e.g. a crash) happens, on average. 0.2 means roughly once every 5 years."
+              onChange={(v) => onChange({ ...spec, lambda: v })}
+            />
             <DistributionCard label="Jump size" spec={spec.jumpSize} onChange={(s) => onChange({ ...spec, jumpSize: s })} compact formatValue={formatValue} />
             <DistributionCard label="Diffusive shape" spec={spec.shock} onChange={(s) => onChange({ ...spec, shock: s })} compact formatValue={formatValue} />
           </>
